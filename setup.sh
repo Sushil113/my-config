@@ -31,6 +31,11 @@ if [ "$(id -u)" -ne 0 ]; then
   error "Please run this script with sudo or as root."
 fi
 
+# Resolve the actual invoking user's home directory
+# (when run via sudo, HOME is /root which is wrong)
+REAL_USER="${SUDO_USER:-$USER}"
+REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+
 # --------------------------
 # Update & Upgrade System
 # --------------------------
@@ -57,92 +62,104 @@ ESSENTIAL_PKGS=(
   fastfetch
   gnome-tweaks
   gnome-shell-extensions
-  extension-manager
-  chrome-gnome-shell
   gnome-shell-extension-manager
   dconf-editor
 )
 log "Installing essential tools..."
-
 apt-get install -y "${ESSENTIAL_PKGS[@]}"
 
 # --------------------------
 # Fastfetch Config Setup
 # --------------------------
-log "Generating Fastfetch default config..."
-FASTFETCH_CONFIG_DIR="$HOME/.config/fastfetch"
+log "Setting up Fastfetch config..."
+FASTFETCH_CONFIG_DIR="$REAL_HOME/.config/fastfetch"
 mkdir -p "$FASTFETCH_CONFIG_DIR"
+
+# Generate a default config as the real user first
 if command -v fastfetch >/dev/null 2>&1; then
-  fastfetch --gen-config > "$FASTFETCH_CONFIG_DIR/config.jsonc" || log "Fastfetch config generation failed, proceeding."
+  sudo -u "$REAL_USER" fastfetch --gen-config 2>/dev/null || log "Fastfetch default config generation skipped."
 fi
 
-# Copy custom Fastfetch config if provided
+# Copy custom Fastfetch config if provided next to this script
 CUSTOM_CONFIG_SRC="$(dirname "${BASH_SOURCE[0]}")/config.jsonc"
 if [ -f "$CUSTOM_CONFIG_SRC" ]; then
-  log "Copying custom Fastfetch config..."
+  log "Copying custom Fastfetch config to $FASTFETCH_CONFIG_DIR/config.jsonc..."
   cp -f "$CUSTOM_CONFIG_SRC" "$FASTFETCH_CONFIG_DIR/config.jsonc"
+  chown "$REAL_USER:$REAL_USER" "$FASTFETCH_CONFIG_DIR/config.jsonc"
 else
-  log "Custom Fastfetch config not found – using generated config."
+  log "Custom Fastfetch config not found at $CUSTOM_CONFIG_SRC – using generated config."
 fi
 
-# --------------------------
-# Helper to add an APT source via /etc/apt/sources.list.d
-# --------------------------
-add_apt_source() {
-  local name="$1"   # short identifier for the repo
-  local url="$2"    # base URL for the repo
-  local key_url="$3"# URL to the repo GPG key
-  local dist="$(lsb_release -cs)"
-  local list_file="/etc/apt/sources.list.d/${name}.list"
-  if [ -f "$list_file" ]; then
-    log "APT source $name already exists – skipping."
-    return
-  fi
-  log "Adding APT source $name..."
-  curl -fsSL "$key_url" | gpg --dearmor -o "/usr/share/keyrings/${name}-archive-keyring.gpg"
-  echo "deb [signed-by=/usr/share/keyrings/${name}-archive-keyring.gpg] $url $dist main" > "$list_file"
-  apt-get update -y
-}
-
-# Helper to install a .deb package directly
-install_deb() {
-  local url="$1"
-  local pkg="$(basename "$url")"
-  local tmp="/tmp/${pkg}"
-  log "Downloading $pkg..."
-  wget -qO "$tmp" "$url"
-  log "Installing $pkg..."
-  dpkg -i "$tmp" || apt-get install -f -y
-  rm -f "$tmp"
-}
+# Ensure the whole config dir is owned by the real user
+chown -R "$REAL_USER:$REAL_USER" "$FASTFETCH_CONFIG_DIR"
 
 # --------------------------
 # Install Applications
 # --------------------------
-# Brave Browser (official repo)
-add_apt_source "brave" "https://brave-browser-apt-release.s3.brave.com/" "https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg"
+
+# --- Brave Browser (official repo) ---
+log "Setting up Brave Browser repository..."
+if [ ! -f /etc/apt/sources.list.d/brave-browser-release.list ]; then
+  curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg \
+    | gpg --dearmor -o /usr/share/keyrings/brave-browser-archive-keyring.gpg
+  echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] \
+https://brave-browser-apt-release.s3.brave.com/ stable main" \
+    > /etc/apt/sources.list.d/brave-browser-release.list
+  apt-get update -y
+else
+  log "Brave repo already exists – skipping."
+fi
 apt-get install -y brave-browser
 
-# Visual Studio Code (Microsoft repo)
-add_apt_source "vscode" "https://packages.microsoft.com/repos/vscode" "https://packages.microsoft.com/keys/microsoft.asc"
+# --- Visual Studio Code (Microsoft repo) ---
+log "Setting up VS Code repository..."
+if [ ! -f /etc/apt/sources.list.d/vscode.list ]; then
+  curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+    | gpg --dearmor -o /usr/share/keyrings/microsoft-archive-keyring.gpg
+  echo "deb [signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg arch=amd64] \
+https://packages.microsoft.com/repos/vscode stable main" \
+    > /etc/apt/sources.list.d/vscode.list
+  apt-get update -y
+else
+  log "VS Code repo already exists – skipping."
+fi
 apt-get install -y code
 
-# Docker Engine (official repo)
-add_apt_source "docker" "https://download.docker.com/linux/ubuntu" "https://download.docker.com/linux/ubuntu/gpg"
+# --- Docker Engine (official repo) ---
+log "Setting up Docker repository..."
+if [ ! -f /etc/apt/sources.list.d/docker.list ]; then
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+    | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  echo "deb [signed-by=/usr/share/keyrings/docker-archive-keyring.gpg arch=$(dpkg --print-architecture)] \
+https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+    > /etc/apt/sources.list.d/docker.list
+  apt-get update -y
+else
+  log "Docker repo already exists – skipping."
+fi
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-# Ghostty – fetch latest .deb from GitHub releases
-GHOSTTY_URL=$(curl -s https://api.github.com/repos/ghostty-org/ghostty/releases/latest |
-               grep -E 'browser_download_url.*deb' |
-               head -n1 |
-               cut -d '"' -f4)
+# Add the real user to the docker group so they can use docker without sudo
+usermod -aG docker "$REAL_USER"
+log "Added $REAL_USER to the docker group (re-login required to take effect)."
+
+# --- Ghostty – fetch latest .deb from GitHub releases ---
+log "Installing Ghostty..."
+GHOSTTY_URL=$(curl -s https://api.github.com/repos/ghostty-org/ghostty/releases/latest \
+               | grep -E 'browser_download_url.*\.deb"' \
+               | head -n1 \
+               | cut -d '"' -f4)
 if [ -n "$GHOSTTY_URL" ]; then
-  install_deb "$GHOSTTY_URL"
+  GHOSTTY_DEB="/tmp/ghostty.deb"
+  log "Downloading Ghostty from $GHOSTTY_URL..."
+  wget -qO "$GHOSTTY_DEB" "$GHOSTTY_URL"
+  dpkg -i "$GHOSTTY_DEB" || apt-get install -f -y
+  rm -f "$GHOSTTY_DEB"
 else
   log "Could not locate latest Ghostty .deb – skipping."
 fi
 
-# GParted (available in default repos)
+# --- GParted (available in default repos) ---
 apt-get install -y gparted
 
 # --------------------------
@@ -151,51 +168,58 @@ apt-get install -y gparted
 log "Installing Zsh..."
 apt-get install -y zsh
 
-# Non‑interactive Oh‑My‑Zsh installation
-if [ ! -d "$HOME/.oh-my-zsh" ]; then
+# Non‑interactive Oh‑My‑Zsh installation (runs as the real user)
+if [ ! -d "$REAL_HOME/.oh-my-zsh" ]; then
   log "Installing Oh‑My‑Zsh..."
-  RUNZSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+  sudo -u "$REAL_USER" env RUNZSH=no KEEP_ZSHRC=yes \
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 fi
 
-# Copy custom .zshrc if it exists next to this script
+# Copy custom .zshrc to the real user's home
 ZSHRC_SRC="$(dirname "${BASH_SOURCE[0]}")/.zshrc"
 if [ -f "$ZSHRC_SRC" ]; then
-  log "Copying custom .zshrc..."
-  cp -f "$ZSHRC_SRC" "$HOME/.zshrc"
+  log "Copying custom .zshrc to $REAL_HOME/.zshrc..."
+  cp -f "$ZSHRC_SRC" "$REAL_HOME/.zshrc"
+  chown "$REAL_USER:$REAL_USER" "$REAL_HOME/.zshrc"
 else
   log "Custom .zshrc not found – leaving existing configuration unchanged."
 fi
 
-# Set GNOME Terminal default shell to Zsh (per‑user basis)
-log "Setting GNOME Terminal default shell to Zsh for the invoking user..."
-sudo -u "${SUDO_USER:-$USER}" dbus-launch gsettings set org.gnome.Terminal.Legacy.Settings default-shell "$(which zsh)"
+# Set Zsh as the login shell for the real user (applies system-wide, including GNOME Terminal)
+log "Setting Zsh as the default login shell for $REAL_USER..."
+chsh -s "$(which zsh)" "$REAL_USER"
 
 # --------------------------
 # Bash Setup for Ghostty
 # --------------------------
 BASHRC_SRC="$(dirname "${BASH_SOURCE[0]}")/.bashrc"
 if [ -f "$BASHRC_SRC" ]; then
-  log "Copying custom .bashrc for Ghostty..."
-  cp -f "$BASHRC_SRC" "$HOME/.bashrc"
+  log "Copying custom .bashrc to $REAL_HOME/.bashrc..."
+  cp -f "$BASHRC_SRC" "$REAL_HOME/.bashrc"
+  chown "$REAL_USER:$REAL_USER" "$REAL_HOME/.bashrc"
 else
   log "Custom .bashrc not found – leaving existing configuration unchanged."
 fi
 
-# Ensure Ghostty uses Bash as its login shell (for the invoking user)
-log "Ensuring Ghostty uses Bash as the default login shell..."
-sudo -u "${SUDO_USER:-$USER}" chsh -s "$(which bash)" "${SUDO_USER:-$USER}"
+# --------------------------
+# Run Zsh to verify it works
+# --------------------------
+log "Verifying Zsh installation..."
+sudo -u "$REAL_USER" zsh --version && log "Zsh is working correctly." \
+  || log "Zsh verification failed – please check your installation."
 
 # --------------------------
 # Final Message
 # --------------------------
 log "Setup complete!"
-log "Please restart your terminal sessions (GNOME Terminal and Ghostty) to apply the new shell configurations."
+log "Please log out and back in (or restart your terminal) to apply the new shell and group configurations."
 
 # Show installed version summary (optional, non‑blocking)
 log "Installed versions summary:"
-if command -v git >/dev/null; then echo "Git: $(git --version)"; fi
-if command -v zsh >/dev/null; then echo "Zsh: $(zsh --version)"; fi
-if command -v code >/dev/null; then echo "VS Code: $(code --version)"; fi
-if command -v brave-browser >/dev/null; then echo "Brave: $(brave-browser --version)"; fi
-if command -v docker >/dev/null; then echo "Docker: $(docker --version)"; fi
-if command -v ghostty >/dev/null; then echo "Ghostty: $(ghostty --version)"; fi
+if command -v git     >/dev/null; then echo "  Git:        $(git --version)"; fi
+if command -v zsh     >/dev/null; then echo "  Zsh:        $(zsh --version)"; fi
+if command -v code    >/dev/null; then echo "  VS Code:    $(code --version | head -1)"; fi
+if command -v brave-browser >/dev/null; then echo "  Brave:      $(brave-browser --version)"; fi
+if command -v docker  >/dev/null; then echo "  Docker:     $(docker --version)"; fi
+if command -v ghostty >/dev/null; then echo "  Ghostty:    $(ghostty --version)"; fi
+if command -v fastfetch >/dev/null; then echo "  Fastfetch:  $(fastfetch --version)"; fi
