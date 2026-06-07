@@ -72,12 +72,15 @@ fi
 alias ll='ls -alF'
 alias la='ls -A'
 alias l='ls -CF'
+
+# Add an "alert" alias for long running commands.  Use like so:
+#   sleep 10; alert
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
-alias update='sudo apt update && sudo apt upgrade'
-alias serve='php artisan serve'
-alias work='php artisan queue:flush && php artisan queue:clear && php artisan queue:work'
-alias clean='sudo apt autoclean && sudo apt autoremove'
-alias sail='sh $([ -f sail ] && echo sail || echo vendor/bin/sail)'
+
+# Alias definitions.
+# You may want to put all your additions into a separate file like
+# ~/.bash_aliases, instead of adding them here directly.
+# See /usr/share/doc/bash-doc/examples in the bash-doc package.
 
 if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
@@ -91,8 +94,8 @@ if ! shopt -oq posix; then
   fi
 fi
 
-#startup neofetch
-nerdfetch
+#startup fastfetch
+fastfetch
 
 #starship theme
 #eval$(starship init bash)
@@ -102,12 +105,23 @@ bind '"\e[A": history-search-backward' # Up arrow
 bind '"\e[B": history-search-forward' # Down arrow
 
 # node js and nvm
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-nvm use default >/dev/null
+# export NVM_DIR="$HOME/.nvm"
+# [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+# [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+# nvm use default >/dev/null
+
+# custom alias
+alias update='sudo apt update && sudo apt upgrade'
+alias serve='php artisan serve'
+alias work='php artisan queue:flush && php artisan queue:clear && php artisan queue:work'
+alias clean='sudo apt autoclean && sudo apt autoremove'
+alias sail='sh $([ -f sail ] && echo sail || echo vendor/bin/sail)'
+alias updatenala='sudo nala update && sudo nala upgrade'
+alias crd='composer run dev'
+alias cacheclear='php artisan cache:clear && php artisan optimize:clear'
+alias formatcode='./vendor/bin/pint --dirty'
 
 # Created by `pipx` on 2025-09-18 16:03:22
-export PATH="$PATH:/home/dazai/.local/bin"
+# export PATH="$PATH:/home/dazai/.local/bin"
 
-eval "$(oh-my-posh init bash)"
+# eval "$(oh-my-posh init bash)"
