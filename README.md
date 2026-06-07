@@ -6,7 +6,6 @@ A collection of personal dotfiles and configuration files for development enviro
 
 ### Terminal & Shell Configuration
 
-
 - **[.bashrc](.bashrc)** - Bash shell configuration
   - Custom aliases for frequently used commands
   - Custom prompt settings
@@ -62,7 +61,6 @@ sudo ./setup.sh
 If you prefer to manually install or are on a different OS, copy the configuration files to their respective locations:
 
    ```bash
-   # Alacritty
    # Shell configurations
    cp .bashrc ~/
    cp .zshrc ~/
