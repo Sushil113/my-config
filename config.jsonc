@@ -23,29 +23,29 @@
         },
         {
             "type": "cpu",
-            "key": "│ ├",
+            "key": "│ ├ ",
             "keyColor": "green",
             "showPeCoreCount": true,
             "temp": true
         },
         {
             "type": "gpu",
-            "key": "│ ├󰻑",
+            "key": "│ ├󰻑 ",
             "keyColor": "green"
         },
         {
             "type": "memory",
-            "key": "│ ├󰾆",
+            "key": "│ ├󰾆 ",
             "keyColor": "green"
         },
         {
             "type": "disk",
-            "key": "│ ├󰉉",
+            "key": "│ ├󰉉 ",
             "keyColor": "green"
         },
         {
             "type": "display",
-            "key": "│ ├",
+            "key": "└ └ ",
             "keyColor": "green"
         },
         {
@@ -64,17 +64,17 @@
         },
         {
             "type": "kernel",
-            "key": "│ ├",
+            "key": "│ ├ ",
             "keyColor": "yellow"
         },
         {
             "type": "packages",
-            "key": "│ ├󰏖",
+            "key": "│ ├󰏖 ",
             "keyColor": "yellow"
         },
         {
             "type": "shell",
-            "key": "└ └",
+            "key": "└ └ ",
             "keyColor": "yellow"
         },
         "break",
@@ -85,17 +85,17 @@
         },
         {
             "type": "wm",
-            "key": "│ ├",
+            "key": "│ ├ ",
             "keyColor": "blue"
         },
         {
             "type": "wmtheme",
-            "key": "│ ├󰉼",
+            "key": "│ ├󰉼 ",
             "keyColor": "blue"
         },
         {
             "type": "terminal",
-            "key": "└ └",
+            "key": "└ └ ",
             "keyColor": "blue"
         },
         {
@@ -105,7 +105,7 @@
         "break",
         {
             "type": "custom",
-            "format": "\u001b[90m┌──────────────────────Uptime / Age / DT───────────────────────┐"
+            "format": "\u001b[90m┌──────────────────────Uptime / Age ───────────────────────────┐"
         },
         {
             "type": "command",
@@ -116,11 +116,6 @@
         {
             "type": "uptime",
             "key": "  Uptime ",
-            "keyColor": "magenta"
-        },
-        {
-            "type": "datetime",
-            "key": "  DateTime ",
             "keyColor": "magenta"
         },
         {
