@@ -35,21 +35,19 @@ source $ZSH/oh-my-zsh.sh
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-nvm use default >/dev/null
-
+# alias for system update and clean
 alias update='sudo apt update && sudo apt upgrade'
-alias serve='php artisan serve'
-alias work='php artisan queue:flush && php artisan queue:clear && php artisan queue:work'
-alias clean='sudo apt autoclean && sudo apt autoremove'
-alias sail='sh $([ -f sail ] && echo sail || echo vendor/bin/sail)'
 alias updatenala='sudo nala update && sudo nala upgrade'
-alias crd='composer run dev'
-alias cacheclear='php artisan cache:clear && php artisan optimize:clear'
-alias formatcode='./vendor/bin/pint --dirty'
+alias clean='sudo apt autoclean && sudo apt autoremove'
 
+# alias for laravel and php
+# alias serve='php artisan serve'
+# alias work='php artisan queue:flush && php artisan queue:clear && php artisan queue:work'
+# alias sail='sh $([ -f sail ] && echo sail || echo vendor/bin/sail)'
+# alias crd='composer run dev'
+# alias cacheclear='php artisan cache:clear && php artisan optimize:clear'
+
+# Enable history search with partial command using up/down arrows
 autoload -U up-line-or-beginning-search
 autoload -U down-line-or-beginning-search
 
@@ -59,5 +57,8 @@ zle -N down-line-or-beginning-search
 bindkey "^[[A" up-line-or-beginning-search   # Up arrow
 bindkey "^[[B" down-line-or-beginning-search # Down arrow
 
-# Created by `pipx` on 2025-09-18 15:54:19
-export PATH="$PATH:/home/dazai/.local/bin"
+# for nvm
+# export NVM_DIR="$HOME/.nvm"
+# [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+# [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+# nvm use default >/dev/null
