@@ -107,11 +107,11 @@ alias updatenala='sudo nala update && sudo nala upgrade'
 alias clean='sudo apt autoclean && sudo apt autoremove'
 
 # alias for laravel and php
-alias serve='php artisan serve'
-alias work='php artisan queue:flush && php artisan queue:clear && php artisan queue:work'
-alias sail='sh $([ -f sail ] && echo sail || echo vendor/bin/sail)'
-alias crd='composer run dev'
-alias cacheclear='php artisan cache:clear && php artisan optimize:clear'
+# alias serve='php artisan serve'
+# alias work='php artisan queue:flush && php artisan queue:clear && php artisan queue:work'
+# alias sail='sh $([ -f sail ] && echo sail || echo vendor/bin/sail)'
+# alias crd='composer run dev'
+# alias cacheclear='php artisan cache:clear && php artisan optimize:clear'
 
 # node js and nvm
 # export NVM_DIR="$HOME/.nvm"
