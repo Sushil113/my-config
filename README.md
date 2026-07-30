@@ -1,8 +1,8 @@
 # My Config — Personal Development Environment
 
-> One-command setup for a fully configured Ubuntu development workstation.
+> One-command setup for a fully configured Linux development workstation.
 
-This repository contains my personal **dotfiles** and **configuration files** along with an automated setup script. It is designed for **Ubuntu 26.04 LTS** and handles everything from installing essential tools to configuring your shell, editor, fonts, and terminal — all in a single command.
+This repository contains my personal **dotfiles** and **configuration files** along with an automated setup script. It supports **Ubuntu/Debian, Fedora, and Arch Linux** and handles everything from installing essential tools to configuring your shell, editor, fonts, and terminal — all in a single command.
 
 ---
 
@@ -15,6 +15,7 @@ This repository contains my personal **dotfiles** and **configuration files** al
 - [Setup](#-setup)
   - [Automated Setup (Recommended)](#automated-setup-recommended)
   - [Manual Setup](#manual-setup)
+- [Setup Script Reference](#-setup-script-reference)
 - [Custom Aliases](#-custom-aliases)
 - [Fonts](#-fonts)
 - [FAQ](#-faq)
@@ -38,14 +39,14 @@ Before you begin, make sure you have the following:
 
 | Requirement         | Details                                                        |
 | ------------------- | -------------------------------------------------------------- |
-| **Operating System** | Ubuntu 26.04 LTS (other Debian-based distros may work)        |
+| **Operating System** | Ubuntu/Debian, Fedora, or Arch Linux (derivatives also supported) |
 | **Architecture**     | x86_64 (amd64)                                                |
 | **Git**              | Needed to clone this repository                                |
 | **Internet**         | Required to download packages during setup                     |
 | **sudo access**      | The setup script must be run with `sudo`                       |
 
 > [!NOTE]
-> The automated setup script is built specifically for **Ubuntu 26.04 LTS**. On other distributions you can still use the config files manually — see [Manual Setup](#manual-setup).
+> The automated setup script detects your distribution via `/etc/os-release` and uses the appropriate package manager (`apt`, `dnf`, or `pacman`). On unsupported distributions, you can still use the config files manually — see [Manual Setup](#manual-setup).
 
 ---
 
@@ -106,6 +107,7 @@ my-config/
 ├── config.jsonc               # Fastfetch display configuration
 ├── settings.json              # VS Code editor settings
 ├── setup.sh                   # Automated setup script (run this first!)
+├── SETUP.md                   # Detailed setup script documentation
 ├── shutdown_menu_zenity.sh    # Graphical shutdown/restart/suspend menu
 └── README.md                  # This file
 ```
@@ -142,6 +144,7 @@ my-config/
 - Configures Zsh as the default shell
 - Deploys all dotfiles to your home directory
 - Prints an installed-versions summary at the end
+- See [`SETUP.md`](./SETUP.md) for the full reference (installed apps, files copied, execution flow)
 
 #### `shutdown_menu_zenity.sh` — Power Menu
 - GTK-based graphical dialog for shutdown, restart, suspend, hibernate, and logout
@@ -184,6 +187,14 @@ sudo ./setup.sh
 **Step 5 (Optional) — Configure Powerlevel10k:**
 
 On first launch of Zsh, Powerlevel10k will walk you through a configuration wizard. Follow the prompts to customize your terminal theme.
+
+---
+
+## Setup Script Reference
+
+For a deep dive into everything `setup.sh` does — including the full list of installed packages per distro, files copied, Docker/Brave/VS Code repository setup, and an execution flow diagram — see the dedicated documentation:
+
+**[`SETUP.md`](./SETUP.md)**
 
 ---
 
@@ -273,7 +284,7 @@ If your terminal looks broken or icons are missing, make sure these fonts are in
 <details>
 <summary><strong>Can I use this on a non-Ubuntu distro?</strong></summary>
 
-The automated script (`setup.sh`) uses `apt` and is designed for Ubuntu 26.04 LTS. You can still copy the individual config files (`.bashrc`, `.zshrc`, `settings.json`, etc.) manually on any Linux or macOS system — see [Manual Setup](#manual-setup).
+The automated script (`setup.sh`) supports **Ubuntu/Debian, Fedora, and Arch Linux**. It detects your distribution automatically via `/etc/os-release`. On unsupported distributions, you can still copy the individual config files (`.bashrc`, `.zshrc`, `settings.json`, etc.) manually — see [Manual Setup](#manual-setup). For the full list of what the script handles per distro, see [`SETUP.md`](./SETUP.md).
 </details>
 
 <details>
