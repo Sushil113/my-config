@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 
 # =============================================================
-# Ubuntu 26.04 LTS Development Environment Setup Script
+# Development Environment Setup Script
 # -------------------------------------------------------------
 # This script installs a curated list of development tools, utilities,
-# and user‑requested applications. It also configures the default
+# and user-requested applications. It also configures the default
 # GNOME Terminal to use Zsh (with a provided .zshrc) and Ghostty to use
 # Bash (with a provided .bashrc).
 #
+# Supported Distributions: Ubuntu/Debian, Fedora, Arch Linux
+#
 # The script is designed to be idempotent – running it repeatedly will
-# only install missing packages or skip already‑present configuration.
+# only install missing packages or skip already-present configuration.
 # =============================================================
 
 set -euo pipefail
@@ -18,13 +20,9 @@ IFS=$'\n\t'
 # --------------------------
 # Helper Functions
 # --------------------------
-log() {
-	echo -e "\e[1;34m[+] $*\e[0m"
-}
-error() {
-	echo -e "\e[1;31m[!] $*\e[0m" >&2
-	exit 1
-}
+log() { echo -e "\e[1;34m[+] $*\e[0m"; }
+warn() { echo -e "\e[1;33m[!] $*\e[0m"; }
+error() { echo -e "\e[1;31m[!] $*\e[0m" >&2; exit 1; }
 
 # Ensure script runs with root privileges
 if [ "$(id -u)" -ne 0 ]; then
@@ -37,52 +35,115 @@ REAL_USER="${SUDO_USER:-$USER}"
 REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
 
 # --------------------------
-# Update & Upgrade System
+# OS Detection
 # --------------------------
-log "Updating package lists..."
-apt-get update -y
-log "Upgrading installed packages..."
-apt-get upgrade -y
+if [ -f /etc/os-release ]; then
+	. /etc/os-release
+	OS=$ID
+	OS_LIKE=${ID_LIKE:-""}
+else
+	error "Cannot detect OS distribution. /etc/os-release not found."
+fi
+
+# Normalize OS to determine package manager
+if [[ "$OS" == "ubuntu" || "$OS" == "debian" || "$OS_LIKE" == *"ubuntu"* || "$OS_LIKE" == *"debian"* ]]; then
+	PKG_MGR="apt"
+elif [[ "$OS" == "fedora" || "$OS_LIKE" == *"fedora"* || "$OS_LIKE" == *"rhel"* || "$OS_LIKE" == *"centos"* ]]; then
+	PKG_MGR="dnf"
+elif [[ "$OS" == "arch" || "$OS_LIKE" == *"arch"* ]]; then
+	PKG_MGR="pacman"
+else
+	error "Unsupported OS: $OS. This script supports Ubuntu/Debian, Fedora, and Arch Linux."
+fi
+
+log "Detected OS: $OS (Package Manager: $PKG_MGR)"
 
 # --------------------------
-# Install Essential Packages (tools & utilities)
+# Package Manager Abstraction
 # --------------------------
-ESSENTIAL_PKGS=(
+update_system() {
+	log "Updating package lists and upgrading system..."
+	case "$PKG_MGR" in
+		apt) apt-get update -y && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y ;;
+		dnf) dnf upgrade -y ;;
+		pacman) pacman -Syu --noconfirm ;;
+	esac
+}
+
+install_pkg() {
+	case "$PKG_MGR" in
+		apt) DEBIAN_FRONTEND=noninteractive apt-get install -y "$@" ;;
+		dnf) dnf install -y "$@" ;;
+		pacman) pacman -S --needed --noconfirm "$@" ;;
+	esac
+}
+
+install_aur() {
+	if [[ "$PKG_MGR" != "pacman" ]]; then return; fi
+	# Check for yay
+	if ! command -v yay >/dev/null 2>&1; then
+		log "Installing yay (AUR helper)..."
+		install_pkg git base-devel
+		sudo -u "$REAL_USER" bash -c "cd /tmp && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm"
+	fi
+	sudo -u "$REAL_USER" yay -S --needed --noconfirm "$@"
+}
+
+# --------------------------
+# Update System
+# --------------------------
+update_system
+
+# --------------------------
+# Install Essential Packages
+# --------------------------
+log "Installing essential tools..."
+
+COMMON_PKGS=(
 	curl
 	wget
 	git
-	build-essential
-	software-properties-common
-	apt-transport-https
-	ca-certificates
-	gnupg
 	unzip
 	vim
 	btop
 	fastfetch
-	gnome-tweaks
-	gnome-shell-extensions
-	gnome-shell-extension-manager
-	dconf-editor
-	gnome-browser-connector
+	gparted
+	zsh
 )
-log "Installing essential tools..."
-apt-get install -y "${ESSENTIAL_PKGS[@]}"
+
+case "$PKG_MGR" in
+	apt)
+		install_pkg "${COMMON_PKGS[@]}" build-essential software-properties-common apt-transport-https ca-certificates gnupg gnome-tweaks gnome-shell-extensions gnome-shell-extension-manager dconf-editor gnome-browser-connector
+		;;
+	dnf)
+		install_pkg "${COMMON_PKGS[@]}" @development-tools gnome-tweaks gnome-shell-extension-common gnome-extensions-app dconf-editor
+		;;
+	pacman)
+		install_pkg "${COMMON_PKGS[@]}" base-devel gnome-tweaks gnome-shell-extensions dconf-editor
+		;;
+esac
 
 # --------------------------
 # Fastfetch Config Setup
 # --------------------------
 log "Setting up Fastfetch config..."
 FASTFETCH_CONFIG_DIR="$REAL_HOME/.config/fastfetch"
-mkdir -p "$FASTFETCH_CONFIG_DIR"
+
+# Ensure ~/.config exists and is owned by the real user before creating fastfetch dir
+if [ ! -d "$REAL_HOME/.config" ]; then
+	sudo -u "$REAL_USER" mkdir -p "$REAL_HOME/.config"
+fi
+sudo -u "$REAL_USER" mkdir -p "$FASTFETCH_CONFIG_DIR"
 
 # Generate a default config as the real user first
 if command -v fastfetch >/dev/null 2>&1; then
-	sudo -u "$REAL_USER" fastfetch --gen-config 2>/dev/null || log "Fastfetch default config generation skipped."
+	sudo -u "$REAL_USER" fastfetch --gen-config-force 2>/dev/null || log "Fastfetch default config generation skipped."
 fi
 
 # Copy custom Fastfetch config if provided next to this script
-CUSTOM_CONFIG_SRC="$(dirname "${BASH_SOURCE[0]}")/config.jsonc"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+CUSTOM_CONFIG_SRC="$SCRIPT_DIR/config.jsonc"
+
 if [ -f "$CUSTOM_CONFIG_SRC" ]; then
 	log "Copying custom Fastfetch config to $FASTFETCH_CONFIG_DIR/config.jsonc..."
 	cp -f "$CUSTOM_CONFIG_SRC" "$FASTFETCH_CONFIG_DIR/config.jsonc"
@@ -98,75 +159,135 @@ chown -R "$REAL_USER:$REAL_USER" "$FASTFETCH_CONFIG_DIR"
 # Install Applications
 # --------------------------
 
-# --- Brave Browser (official repo) ---
+# --- Brave Browser ---
 log "Setting up Brave Browser repository..."
-if [ ! -f /etc/apt/sources.list.d/brave-browser-release.list ]; then
-	curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg |
-		gpg --dearmor -o /usr/share/keyrings/brave-browser-archive-keyring.gpg
-	echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] \
-https://brave-browser-apt-release.s3.brave.com/ stable main" \
-		>/etc/apt/sources.list.d/brave-browser-release.list
-	apt-get update -y
-else
-	log "Brave repo already exists – skipping."
-fi
-apt-get install -y brave-browser
+case "$PKG_MGR" in
+	apt)
+		if [ ! -f /etc/apt/sources.list.d/brave-browser-release.list ]; then
+			curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg | gpg --dearmor --yes -o /usr/share/keyrings/brave-browser-archive-keyring.gpg
+			echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" >/etc/apt/sources.list.d/brave-browser-release.list
+			apt-get update -y
+		else
+			log "Brave repo already exists – skipping."
+		fi
+		install_pkg brave-browser
+		;;
+	dnf)
+		if [ ! -f /etc/yum.repos.d/brave-browser.repo ]; then
+			dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+			rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
+		else
+			log "Brave repo already exists – skipping."
+		fi
+		install_pkg brave-browser
+		;;
+	pacman)
+		install_aur brave-bin
+		;;
+esac
 
-# --- Visual Studio Code (Microsoft repo) ---
+# --- Visual Studio Code ---
 log "Setting up VS Code repository..."
-if [ ! -f /etc/apt/sources.list.d/vscode.list ]; then
-	curl -fsSL https://packages.microsoft.com/keys/microsoft.asc |
-		gpg --dearmor -o /usr/share/keyrings/microsoft-archive-keyring.gpg
-	echo "deb [signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg arch=amd64] \
-https://packages.microsoft.com/repos/vscode stable main" \
-		>/etc/apt/sources.list.d/vscode.list
-	apt-get update -y
-else
-	log "VS Code repo already exists – skipping."
-fi
-apt-get install -y code
+case "$PKG_MGR" in
+	apt)
+		if [ ! -f /etc/apt/sources.list.d/vscode.list ]; then
+			curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor --yes -o /usr/share/keyrings/microsoft-archive-keyring.gpg
+			echo "deb [signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg arch=amd64] https://packages.microsoft.com/repos/vscode stable main" >/etc/apt/sources.list.d/vscode.list
+			apt-get update -y
+		else
+			log "VS Code repo already exists – skipping."
+		fi
+		install_pkg code
+		;;
+	dnf)
+		if [ ! -f /etc/yum.repos.d/vscode.repo ]; then
+			rpm --import https://packages.microsoft.com/keys/microsoft.asc
+			echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo
+		else
+			log "VS Code repo already exists – skipping."
+		fi
+		install_pkg code
+		;;
+	pacman)
+		# Install from official repos (OSS build)
+		install_pkg code
+		;;
+esac
 
-# --- Docker Engine (official repo) ---
+# --- Docker Engine ---
 log "Setting up Docker repository..."
-if [ ! -f /etc/apt/sources.list.d/docker.list ]; then
-	curl -fsSL https://download.docker.com/linux/ubuntu/gpg |
-		gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-	echo "deb [signed-by=/usr/share/keyrings/docker-archive-keyring.gpg arch=$(dpkg --print-architecture)] \
-https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
-		>/etc/apt/sources.list.d/docker.list
-	apt-get update -y
-else
-	log "Docker repo already exists – skipping."
-fi
-apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+case "$PKG_MGR" in
+	apt)
+		# Determine base distro for Docker repo (derivatives like Mint → ubuntu/debian)
+		if [[ "$OS" == "ubuntu" || "$OS_LIKE" == *"ubuntu"* ]]; then
+			DOCKER_DISTRO="ubuntu"
+		else
+			DOCKER_DISTRO="debian"
+		fi
+		if [ ! -f /etc/apt/sources.list.d/docker.list ]; then
+			curl -fsSL "https://download.docker.com/linux/$DOCKER_DISTRO/gpg" | gpg --dearmor --yes -o /usr/share/keyrings/docker-archive-keyring.gpg
+			echo "deb [signed-by=/usr/share/keyrings/docker-archive-keyring.gpg arch=$(dpkg --print-architecture)] https://download.docker.com/linux/$DOCKER_DISTRO $VERSION_CODENAME stable" >/etc/apt/sources.list.d/docker.list
+			apt-get update -y
+		else
+			log "Docker repo already exists – skipping."
+		fi
+		install_pkg docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+		;;
+	dnf)
+		if [ ! -f /etc/yum.repos.d/docker-ce.repo ]; then
+			dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+		else
+			log "Docker repo already exists – skipping."
+		fi
+		install_pkg docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+		;;
+	pacman)
+		install_pkg docker docker-compose
+		;;
+esac
 
 # Add the real user to the docker group so they can use docker without sudo
+if ! getent group docker > /dev/null; then
+	groupadd docker
+fi
 usermod -aG docker "$REAL_USER"
 log "Added $REAL_USER to the docker group (re-login required to take effect)."
 
-# --- Ghostty – fetch latest .deb from GitHub releases ---
-log "Installing Ghostty..."
-
-if apt-cache show ghostty >/dev/null 2>&1; then
-	apt-get install -y ghostty
-else
-	log "Ghostty package not available in configured repositories."
+# Enable docker service if available (systemd)
+if command -v systemctl >/dev/null 2>&1; then
+	systemctl enable --now docker || warn "Failed to enable docker service."
 fi
 
-# --- GParted (available in default repos) ---
-apt-get install -y gparted
+# --- Ghostty ---
+log "Installing Ghostty..."
+case "$PKG_MGR" in
+	apt)
+		if apt-cache show ghostty >/dev/null 2>&1; then
+			install_pkg ghostty
+		else
+			warn "Ghostty package not available in configured APT repositories."
+		fi
+		;;
+	dnf)
+		if dnf info ghostty >/dev/null 2>&1; then
+			install_pkg ghostty
+		else
+			warn "Ghostty package not available in DNF repositories."
+		fi
+		;;
+	pacman)
+		install_pkg ghostty
+		;;
+esac
 
 # --------------------------
-# Zsh & Oh‑My‑Zsh Setup (for GNOME Terminal)
+# Zsh & Oh-My-Zsh Setup
 # --------------------------
-log "Installing Zsh..."
-apt-get install -y zsh
-
-# Non‑interactive Oh‑My‑Zsh installation (runs as the real user)
+# Non-interactive Oh-My-Zsh installation (runs as the real user)
 if [ ! -d "$REAL_HOME/.oh-my-zsh" ]; then
-	log "Installing Oh‑My‑Zsh..."
-	sudo -u "$REAL_USER" env RUNZSH=no KEEP_ZSHRC=yes \
-		sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+	log "Installing Oh-My-Zsh..."
+	curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh \
+		| sudo -u "$REAL_USER" env RUNZSH=no KEEP_ZSHRC=yes sh
 fi
 
 # Copy custom .zshrc to the real user's home
@@ -179,7 +300,7 @@ else
 	log "Custom .zshrc not found – leaving existing configuration unchanged."
 fi
 
-# Set Zsh as the login shell for the real user (applies system-wide, including GNOME Terminal)
+# Set Zsh as the login shell for the real user
 log "Setting Zsh as the default login shell for $REAL_USER..."
 chsh -s "$(which zsh)" "$REAL_USER"
 
@@ -196,18 +317,10 @@ else
 fi
 
 # --------------------------
-# Run Zsh to verify it works
+# Verify Zsh
 # --------------------------
 log "Verifying Zsh installation..."
-sudo -u "$REAL_USER" zsh --version && log "Zsh is working correctly." ||
-	log "Zsh verification failed – please check your installation."
-
-# --------------------------
-# Run Zsh to verify it works
-# --------------------------
-log "Verifying Zsh installation..."
-sudo -u "$REAL_USER" zsh --version && log "Zsh is working correctly." ||
-	log "Zsh verification failed – please check your installation."
+sudo -u "$REAL_USER" zsh --version && log "Zsh is working correctly." || log "Zsh verification failed – please check your installation."
 
 # --------------------------
 # Install Nerd Fonts
@@ -215,21 +328,15 @@ sudo -u "$REAL_USER" zsh --version && log "Zsh is working correctly." ||
 log "Installing Nerd Fonts..."
 
 FONT_DIR="/usr/local/share/fonts"
+mkdir -p "$FONT_DIR"
 
-sudo mkdir -p "$FONT_DIR"
+wget -qO /tmp/Meslo.zip https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Meslo.zip
+unzip -o /tmp/Meslo.zip -d "$FONT_DIR" >/dev/null
 
-sudo wget -qO /tmp/Meslo.zip \
-	https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Meslo.zip
+wget -qO /tmp/FiraCode.zip https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
+unzip -o /tmp/FiraCode.zip -d "$FONT_DIR" >/dev/null
 
-sudo unzip -o /tmp/Meslo.zip -d "$FONT_DIR" >/dev/null
-
-sudo wget -qO /tmp/FiraCode.zip \
-	https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
-
-sudo unzip -o /tmp/FiraCode.zip -d "$FONT_DIR" >/dev/null
-
-sudo fc-cache -fv >/dev/null
-
+fc-cache -fv >/dev/null
 rm -f /tmp/Meslo.zip /tmp/FiraCode.zip
 
 log "Nerd Fonts installed successfully."
@@ -239,22 +346,22 @@ log "Nerd Fonts installed successfully."
 # --------------------------
 log "Installing Powerlevel10k and Zsh plugins..."
 
-OH_MY_ZSH_CUSTOM="${ZSH_CUSTOM:-/home/$REAL_USER/.oh-my-zsh/custom}"
+OH_MY_ZSH_CUSTOM="$REAL_HOME/.oh-my-zsh/custom"
 
 # Powerlevel10k theme
-sudo -u "$REAL_USER" git clone --depth=1 \
-	https://github.com/romkatv/powerlevel10k.git \
-	"$OH_MY_ZSH_CUSTOM/themes/powerlevel10k"
+if [ ! -d "$OH_MY_ZSH_CUSTOM/themes/powerlevel10k" ]; then
+	sudo -u "$REAL_USER" git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$OH_MY_ZSH_CUSTOM/themes/powerlevel10k"
+fi
 
 # zsh-autosuggestions
-sudo -u "$REAL_USER" git clone \
-	https://github.com/zsh-users/zsh-autosuggestions \
-	"$OH_MY_ZSH_CUSTOM/plugins/zsh-autosuggestions"
+if [ ! -d "$OH_MY_ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
+	sudo -u "$REAL_USER" git clone https://github.com/zsh-users/zsh-autosuggestions "$OH_MY_ZSH_CUSTOM/plugins/zsh-autosuggestions"
+fi
 
 # zsh-syntax-highlighting
-sudo -u "$REAL_USER" git clone \
-	https://github.com/zsh-users/zsh-syntax-highlighting.git \
-	"$OH_MY_ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+if [ ! -d "$OH_MY_ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
+	sudo -u "$REAL_USER" git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$OH_MY_ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+fi
 
 log "Powerlevel10k and Zsh plugins installed successfully."
 
