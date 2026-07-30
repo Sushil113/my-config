@@ -255,7 +255,7 @@ Both `.bashrc` and `.zshrc` include shortcut aliases to save you time:
 | `updatenala`   | `sudo nala update && sudo nala upgrade`           | Same, using Nala package manager  |
 | `clean`        | `sudo apt autoclean && sudo apt autoremove`       | Remove unused packages            |
 
-### Laravel Development (Bash only)
+### Laravel Development
 
 | Alias          | Command                                                        | Description                    |
 | -------------- | -------------------------------------------------------------- | ------------------------------ |
