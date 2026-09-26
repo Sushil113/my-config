@@ -105,27 +105,27 @@ Installs core CLI tools and GNOME desktop utilities.
 
 #### Brave Browser
 
-| Distro         | Method                                |
-| -------------- | ------------------------------------- |
-| Ubuntu/Debian  | Official APT repository + GPG key     |
-| Fedora         | Official DNF repository + RPM key     |
-| Arch           | AUR (`brave-bin` via `yay`)           |
+| Distro         | Method                                              |
+| -------------- | --------------------------------------------------- |
+| Ubuntu/Debian  | Official APT repository + GPG key                   |
+| Fedora         | Repo file written directly + RPM key (DNF4/5 safe)  |
+| Arch           | AUR (`brave-bin` via `yay`)                         |
 
 #### Visual Studio Code
 
-| Distro         | Method                                |
-| -------------- | ------------------------------------- |
-| Ubuntu/Debian  | Microsoft APT repository + GPG key    |
-| Fedora         | Microsoft YUM repository + RPM key    |
-| Arch           | Official repos (`code` — OSS build)  |
+| Distro         | Method                                              |
+| -------------- | --------------------------------------------------- |
+| Ubuntu/Debian  | Microsoft APT repository + GPG key                  |
+| Fedora         | Repo file written directly + RPM key (DNF4/5 safe)  |
+| Arch           | Official repos (`code` -- OSS build)                |
 
 #### Docker Engine
 
-| Distro         | Method                                          |
-| -------------- | ------------------------------------------------ |
-| Ubuntu/Debian  | Docker's official APT repo (auto-detects base)   |
-| Fedora         | Docker's official DNF repo                       |
-| Arch           | Official repos (`docker`, `docker-compose`)      |
+| Distro         | Method                                                |
+| -------------- | ----------------------------------------------------- |
+| Ubuntu/Debian  | Docker's official APT repo (auto-detects base)        |
+| Fedora         | Repo file written directly + GPG key (DNF4/5 safe)    |
+| Arch           | Official repos (`docker`, `docker-compose`)           |
 
 After installation:
 - Creates the `docker` group (if it doesn't exist)
@@ -137,20 +137,25 @@ After installation:
 | Distro         | Method                                     |
 | -------------- | ------------------------------------------ |
 | Ubuntu/Debian  | Installed if available in APT repos        |
-| Fedora         | Installed if available in DNF repos        |
+| Fedora         | COPR repository (`pgdev/ghostty`)          |
 | Arch           | Official repos                             |
 
-### 5. Shell Setup (Zsh + Oh-My-Zsh)
+### 5. Deploy VS Code Settings
+
+- Copies [`settings.json`](./settings.json) to `~/.config/Code/User/settings.json`
+- Creates the directory if it does not exist
+
+### 6. Shell Setup (Zsh + Oh-My-Zsh)
 
 - Installs **Oh-My-Zsh** framework (non-interactive, runs as real user)
 - Copies the custom [`.zshrc`](./.zshrc) to `~/`
 - Sets **Zsh as the default login shell** via `chsh`
 
-### 6. Bash Setup (for Ghostty)
+### 7. Bash Setup (for Ghostty)
 
 - Copies the custom [`.bashrc`](./.bashrc) to `~/`
 
-### 7. Install Nerd Fonts
+### 8. Install Nerd Fonts
 
 Downloads and installs to `/usr/local/share/fonts/`:
 
@@ -161,7 +166,7 @@ Downloads and installs to `/usr/local/share/fonts/`:
 
 Runs `fc-cache -fv` to rebuild the system font cache after installation.
 
-### 8. Install Zsh Plugins & Theme
+### 9. Install Zsh Plugins & Theme
 
 Clones into `~/.oh-my-zsh/custom/`:
 
@@ -171,7 +176,7 @@ Clones into `~/.oh-my-zsh/custom/`:
 | **zsh-autosuggestions**      | [zsh-users/zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions) | `~/.oh-my-zsh/custom/plugins/zsh-autosuggestions` |
 | **zsh-syntax-highlighting**  | [zsh-users/zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting) | `~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting` |
 
-### 9. Version Summary
+### 10. Version Summary
 
 Prints the installed versions of Git, Zsh, VS Code, Brave, Docker, Ghostty, and Fastfetch.
 
@@ -186,6 +191,7 @@ The script deploys configuration files from the repository to the user's home di
 | [`.zshrc`](./.zshrc)                   | `~/.zshrc`                               | Zsh shell configuration            |
 | [`.bashrc`](./.bashrc)                 | `~/.bashrc`                              | Bash shell configuration           |
 | [`config.jsonc`](./config.jsonc)       | `~/.config/fastfetch/config.jsonc`       | Fastfetch display configuration    |
+| [`settings.json`](./settings.json)     | `~/.config/Code/User/settings.json`      | VS Code editor settings            |
 
 > [!WARNING]
 > The script **overwrites** existing `.zshrc` and `.bashrc` files without prompting. Back up your current configs before running:
@@ -216,9 +222,10 @@ sudo ./setup.sh
     ├── Configure Fastfetch (copy config.jsonc)
     ├── Install Brave Browser (add repo + install)
     ├── Install VS Code (add repo + install)
+    ├── Deploy VS Code settings (copy settings.json)
     ├── Install Docker Engine (add repo + install + enable service)
     │     └── Add user to docker group
-    ├── Install Ghostty terminal
+    ├── Install Ghostty terminal (COPR on Fedora)
     ├── Install Oh-My-Zsh + copy .zshrc + set Zsh as default shell
     ├── Copy .bashrc (for Ghostty)
     ├── Install Nerd Fonts (Meslo + FiraCode)
