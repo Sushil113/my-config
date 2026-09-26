@@ -138,11 +138,11 @@ my-config/
 - **Layout**: Activity bar on top, sidebar on right
 - Bracket pair guides, smooth cursor animation
 
-#### `setup.sh` — Automated Setup Script
-- Fully idempotent — safe to run multiple times
+#### `setup.sh` -- Automated Setup Script
+- Fully idempotent -- safe to run multiple times
 - Installs all packages, applications, fonts, and plugins
 - Configures Zsh as the default shell
-- Deploys all dotfiles to your home directory
+- Deploys all dotfiles and VS Code settings to your home directory
 - Prints an installed-versions summary at the end
 - See [`SETUP.md`](./SETUP.md) for the full reference (installed apps, files copied, execution flow)
 
