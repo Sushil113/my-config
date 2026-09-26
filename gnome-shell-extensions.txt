@@ -1,0 +1,7 @@
+Bluetooth-Battery-Meter@maniacx.github.com  
+bluetooth-quick-connect@bjarosze.gmail.com  
+caffeine@patapon.info  
+search-light@icedman.github.com  
+space-bar@luchrioh  
+user-theme@gnome-shell-extensions.gcampax.github.com  
+Vitals@CoreCoding.com
